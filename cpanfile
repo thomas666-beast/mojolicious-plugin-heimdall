@@ -5,6 +5,7 @@ requires 'Crypt::Passphrase::Argon2', '0';
 requires 'Crypt::Passphrase::Bcrypt', '0';
 requires 'Crypt::URandom::Token', '0.005';
 requires 'CryptX', '0.088_001';
+requires 'Crypt::JWT', '0.038';
 
 on 'test' => sub {
   requires 'Test::More', '1.302';
