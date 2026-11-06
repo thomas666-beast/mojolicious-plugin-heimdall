@@ -15,6 +15,7 @@ sub _hashref ($self) {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -31,8 +32,45 @@ Mojolicious::Plugin::Heimdall::Facade - Unified entry point for Heimdall
 
 =head1 DESCRIPTION
 
-Holds references to all sub-modules (Password, Random, Crypto, JWT, Auth)
-and exposes them as accessor methods. Use C<$c-E<gt>heimdall-E<gt>password>
-instead of C<$c-E<gt>heimdall-E<gt>{password}>.
+Holds references to all submodules and exposes them as accessor methods.
+
+=head1 ATTRIBUTES
+
+L<Mojolicious::Plugin::Heimdall::Facade> implements the following
+attributes.
+
+=head2 password
+
+  my $pw = $h->password;
+
+L<Mojolicious::Plugin::Heimdall::Password> instance.
+
+=head2 random
+
+  my $rnd = $h->random;
+
+L<Mojolicious::Plugin::Heimdall::Random> instance.
+
+=head2 crypto
+
+  my $crypto = $h->crypto;
+
+L<Mojolicious::Plugin::Heimdall::Crypto> instance.
+
+=head2 jwt
+
+  my $jwt = $h->jwt;
+
+L<Mojolicious::Plugin::Heimdall::JWT> instance.
+
+=head2 auth
+
+  my $auth = $h->auth;
+
+L<Mojolicious::Plugin::Heimdall::Auth> instance.
+
+=head1 SEE ALSO
+
+L<Mojolicious::Plugin::Heimdall>.
 
 =cut

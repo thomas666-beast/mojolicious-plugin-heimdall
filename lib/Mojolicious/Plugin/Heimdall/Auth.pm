@@ -47,6 +47,7 @@ sub return_to ($self, $c, $default = '/') {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -55,27 +56,85 @@ Mojolicious::Plugin::Heimdall::Auth - Session-based authentication
 
 =head1 SYNOPSIS
 
-  # In your app startup
   $app->plugin('Heimdall', {
     auth => {
-      session_key => 'user_id',
-      load_user   => sub ($app, $id) {
-        return $app->users->find($id);
-      },
+      session_key => 'uid',
+      load_user   => sub ($app, $id) { $app->users->find($id) },
     },
   });
 
-  # In a controller
   $c->heimdall->auth->login($c, $user->id);
   my $user = $c->heimdall->auth->current_user($c);
-  $c->heimdall->auth->require_login($c) or return;
   $c->heimdall->auth->logout($c);
 
 =head1 DESCRIPTION
 
-Wraps L<Mojolicious::Sessions> to provide login/logout/current_user
-helpers. Stores only the user id in the session; the user object is
-loaded lazily via the C<load_user> coderef, so account changes are
-picked up on the next request.
+Session authentication on top of L<Mojolicious::Sessions>. Only the user ID
+is stored in the session; the user object is loaded lazily via the
+C<load_user> callback.
+
+=head1 ATTRIBUTES
+
+=head2 session_key
+
+  my $key = $auth->session_key;
+
+Session key holding the user ID. Default C<user_id>.
+
+=head2 load_user
+
+  my $cb = $auth->load_user;
+
+Coderef C<< sub ($app, $id) { ... } >> returning a user object.
+
+=head1 METHODS
+
+=head2 new
+
+  my $auth = Mojolicious::Plugin::Heimdall::Auth->new(%args);
+
+Constructor. Accepts C<session_key> and C<load_user>.
+
+=head2 login
+
+  $auth->login($c, $user_id);
+
+Store the user ID in the session.
+
+=head2 logout
+
+  $auth->logout($c);
+
+Remove the user ID from the session.
+
+=head2 current_user
+
+  my $user = $auth->current_user($c);
+
+Return the user object (via C<load_user>) or the raw ID if no callback is
+configured. Returns C<undef> if not authenticated.
+
+=head2 is_authenticated
+
+  my $bool = $auth->is_authenticated($c);
+
+True if a user ID is present in the session.
+
+=head2 require_login
+
+  my $ok = $auth->require_login($c);
+
+If authenticated, returns true. Otherwise stores the current URL under
+C<heimdall_return_to> and redirects to C</login>, returning false.
+
+=head2 return_to
+
+  my $url = $auth->return_to($c, $default);
+
+Return and clear the stored return URL, falling back to C<$default>.
+
+=head1 SEE ALSO
+
+L<Mojolicious::Sessions>, L<Mojolicious::Plugin::Heimdall>.
 
 =cut

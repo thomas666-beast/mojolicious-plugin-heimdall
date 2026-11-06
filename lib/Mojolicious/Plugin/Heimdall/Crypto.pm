@@ -44,6 +44,7 @@ sub aes_gcm_decrypt ($self, $blob, $key, $aad = '') {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -54,23 +55,58 @@ Mojolicious::Plugin::Heimdall::Crypto - RSA and AES-GCM encryption
 
   my $crypto = $c->heimdall->crypto;
 
-  # RSA
   my $keys = $crypto->rsa_generate(2048);
   my $ct   = $crypto->rsa_encrypt($plain, $keys->{public_pem});
   my $pt   = $crypto->rsa_decrypt($ct, $keys->{private_pem});
 
-  # AES-GCM (authenticated)
-  my $key  = random_bytes(32);   # 256-bit key, generate once and store securely
   my $blob = $crypto->aes_gcm_encrypt($plain, $key, 'user:42');
   my $pt   = $crypto->aes_gcm_decrypt($blob, $key, 'user:42');
 
 =head1 DESCRIPTION
 
-Wraps L<CryptX> for asymmetric and symmetric encryption.
-RSA uses OAEP padding (CryptX default) [citation:11].
-AES-GCM uses the one-shot interface, which performs constant-time tag
-verification [citation:2][citation:4].
+Asymmetric and symmetric encryption backed by L<CryptX>. RSA uses OAEP
+padding. AES-GCM uses the one-shot interface for authenticated encryption.
 
-Requires CryptX >= 0.088_001 due to CVE-2026-13758 and CVE-2026-41564.
+Requires C<CryptX> E<gt>= 0.088_001 (fixes CVE-2026-13758 and
+CVE-2026-41564).
+
+=head1 METHODS
+
+=head2 rsa_generate
+
+  my $keys = $crypto->rsa_generate($bits);
+
+Generate an RSA keypair. Returns a hashref with C<public_pem> and
+C<private_pem>. Default C<$bits> is 2048.
+
+=head2 rsa_encrypt
+
+  my $b64 = $crypto->rsa_encrypt($plain, $public_pem);
+
+Encrypt a plaintext with an RSA public key (PEM). Returns Base64.
+
+=head2 rsa_decrypt
+
+  my $pt = $crypto->rsa_decrypt($b64, $private_pem);
+
+Decrypt a Base64 ciphertext with an RSA private key (PEM).
+
+=head2 aes_gcm_encrypt
+
+  my $blob = $crypto->aes_gcm_encrypt($plain, $key, $aad);
+
+Encrypt with AES-GCM. Returns a hashref with C<iv>, C<ciphertext>, and
+C<tag> (all Base64). C<$aad> is optional additional authenticated data.
+
+=head2 aes_gcm_decrypt
+
+  my $pt = $crypto->aes_gcm_decrypt($blob, $key, $aad);
+
+Decrypt an AES-GCM blob. Returns C<undef> if authentication fails.
+
+=head1 SEE ALSO
+
+L<CryptX>, L<Crypt::PK::RSA>, L<Crypt::AuthEnc::GCM>,
+L<Mojolicious::Plugin::Heimdall>.
 
 =cut

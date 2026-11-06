@@ -23,6 +23,7 @@ sub string ($self, $length = 32, $alphabet = undef) {
 }
 
 1;
+
 __END__
 
 =head1 NAME
@@ -38,8 +39,36 @@ Mojolicious::Plugin::Heimdall::Random - Secure random token and password generat
 
 =head1 DESCRIPTION
 
-Wraps L<Crypt::URandom::Token> (which uses L<Crypt::URandom> as its
-entropy source) to provide cryptographically secure random strings.
-Rejection sampling prevents modulo bias.
+Wraps L<Crypt::URandom::Token> (backed by L<Crypt::URandom>) to provide
+cryptographically secure random strings. Rejection sampling prevents
+modulo bias.
+
+=head1 METHODS
+
+=head2 token
+
+  my $token = $rnd->token($length);
+
+Return a URL-safe alphanumeric token of C<$length> characters
+(default 44).
+
+=head2 password
+
+  my $pass = $rnd->password($length);
+
+Return a random password of C<$length> characters (default 16, minimum 4)
+drawn from upper-, lower-, digit, and symbol alphabets. Character classes
+are not guaranteed to all appear.
+
+=head2 string
+
+  my $str = $rnd->string($length, $alphabet);
+
+Return a random string of C<$length> characters from C<$alphabet>. If
+C<$alphabet> is omitted, uses the module's default alphabet.
+
+=head1 SEE ALSO
+
+L<Crypt::URandom::Token>, L<Mojolicious::Plugin::Heimdall>.
 
 =cut

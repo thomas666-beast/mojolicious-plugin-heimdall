@@ -1015,6 +1015,16 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       warnings 0
+  Devel-Symdump-2.18
+    pathname: A/AN/ANDK/Devel-Symdump-2.18.tar.gz
+    provides:
+      Devel::Symdump 2.18
+      Devel::Symdump::Export undef
+    requirements:
+      Compress::Zlib 0
+      ExtUtils::MakeMaker 0
+      Test::More 0
+      perl 5.004
   Dist-Build-0.028
     pathname: L/LE/LEONT/Dist-Build-0.028.tar.gz
     provides:
@@ -3049,6 +3059,42 @@ DISTRIBUTIONS
       perl 5.008
       strict 0
       warnings 0
+  Pod-Coverage-0.23
+    pathname: R/RC/RCLAMP/Pod-Coverage-0.23.tar.gz
+    provides:
+      Pod::Coverage 0.23
+      Pod::Coverage::CountParents undef
+      Pod::Coverage::ExportOnly undef
+      Pod::Coverage::Extractor 0.23
+      Pod::Coverage::Overloader undef
+    requirements:
+      Devel::Symdump 2.01
+      ExtUtils::MakeMaker 0
+      Pod::Find 0.21
+      Pod::Parser 1.13
+      Test::More 0
+  Pod-Parser-1.67
+    pathname: M/MA/MAREKR/Pod-Parser-1.67.tar.gz
+    provides:
+      Pod::Cache 1.67
+      Pod::Cache::Item 1.67
+      Pod::Find 1.67
+      Pod::Hyperlink 1.67
+      Pod::InputObjects 1.67
+      Pod::InputSource 1.67
+      Pod::InteriorSequence 1.67
+      Pod::List 1.67
+      Pod::Paragraph 1.67
+      Pod::ParseTree 1.67
+      Pod::ParseUtils 1.67
+      Pod::Parser 1.67
+      Pod::PlainText 2.07
+      Pod::Select 1.67
+    requirements:
+      Cwd 0
+      ExtUtils::MakeMaker 0
+      File::Basename 0
+      Test::More 0.6
   Role-HasMessage-0.007
     pathname: R/RJ/RJBS/Role-HasMessage-0.007.tar.gz
     provides:
@@ -3454,6 +3500,17 @@ DISTRIBUTIONS
       Test::Builder::Tester 1.02
       Test::More 0.62
       perl 5.008
+  Test-Pod-Coverage-1.10
+    pathname: N/NE/NEILB/Test-Pod-Coverage-1.10.tar.gz
+    provides:
+      Test::Pod::Coverage 1.10
+    requirements:
+      ExtUtils::MakeMaker 0
+      Pod::Coverage 0
+      Test::Builder 0
+      perl 5.006
+      strict 0
+      warnings 0
   Text-Glob-0.11
     pathname: R/RC/RCLAMP/Text-Glob-0.11.tar.gz
     provides:
