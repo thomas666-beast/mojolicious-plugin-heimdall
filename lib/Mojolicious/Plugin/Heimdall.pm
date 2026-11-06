@@ -5,10 +5,19 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 our $VERSION = '0.001';
 
 sub register ($self, $app, $conf) {
-  # Placeholder. Real registration comes in a later task.
+  require Mojolicious::Plugin::Heimdall::Password;
+
+  my $password = Mojolicious::Plugin::Heimdall::Password->new(
+    encoder    => $conf->{password_encoder}    // 'Argon2',
+    validators => $conf->{password_validators} // [ 'Bcrypt', 'Argon2' ],
+  );
+
+  $app->helper(heimdall => sub ($c) {
+    return { password => $password };
+  });
+
   return $self;
 }
-
 1;
 __END__
 
