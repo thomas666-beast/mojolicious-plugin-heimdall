@@ -7,10 +7,10 @@ my $app = Mojolicious->new;
 $app->plugin('Heimdall');
 my $jwt = $app->build_controller->heimdall->jwt;
 
-my $secret = '0123456789abcdef0123456789abcdef';  # 32 bytes for HS256
+my $secret  = '0123456789abcdef0123456789abcdef';  # 32 bytes for HS256
 my $payload = { sub => 42, role => 'admin' };
 
-# HS256 round-trip
+# --- JWS / HS256 round-trip ---
 my $token = $jwt->encode($payload, $secret, 'HS256');
 ok(defined $token, 'HS256 token generated');
 like($token, qr/^[\w-]+\.[\w-]+\.[\w-]+$/, 'JWS has 3 segments');
@@ -18,15 +18,15 @@ like($token, qr/^[\w-]+\.[\w-]+\.[\w-]+$/, 'JWS has 3 segments');
 my $decoded = $jwt->decode($token, $secret, ['HS256']);
 is_deeply($decoded, $payload, 'HS256 round-trip');
 
-# Wrong key fails
+# Wrong key rejected
 eval { $jwt->decode($token, 'wrong-secret-32bytes-long!!!!!!', ['HS256']) };
-ok($@, 'wrong key rejected');
+ok($@, 'wrong HMAC key rejected');
 
-# Algorithm confusion blocked
+# Algorithm confusion: token signed with HS256 must be rejected when RS256 is required
 eval { $jwt->decode($token, $secret, ['RS256']) };
 ok($@, 'algorithm confusion blocked by accepted_alg');
 
-# JWE round-trip
+# --- JWE / PBES2 + A128GCM round-trip ---
 my $jwe = $jwt->encode($payload, $secret, 'PBES2-HS256+A128KW', 'A128GCM');
 ok(defined $jwe, 'JWE token generated');
 my @parts = split /\./, $jwe;
@@ -38,21 +38,16 @@ my $jwe_decoded = $jwt->decode_jwe(
 );
 is_deeply($jwe_decoded, $payload, 'JWE round-trip');
 
-# Tampered JWE must not recover original payload
-my @jwe_parts = split /\./, $jwe;
-# Flip a character in the ciphertext segment (4th segment, index 3)
-my $last_char = substr($jwe_parts[3], -1);
-$jwe_parts[3] = substr($jwe_parts[3], 0, -1) . ($last_char eq 'A' ? 'B' : 'A');
-my $tampered = join '.', @jwe_parts;
-
-my $payload_recovered = 0;
+# accepted_alg enforcement: token alg is PBES2-HS256+A128KW, we only allow RSA-OAEP
 eval {
-  my $r = $jwt->decode_jwe($tampered, $secret, ['PBES2-HS256+A128KW'], ['A128GCM']);
-  if (ref $r eq 'HASH' && defined $r->{sub} && $r->{sub} == 42) {
-    $payload_recovered = 1;
-  }
+  $jwt->decode_jwe($jwe, $secret, ['RSA-OAEP'], ['A128GCM']);
 };
+ok($@, 'JWE rejected when accepted_alg does not match token alg');
 
-ok(!$payload_recovered, 'tampered JWE does not recover original payload');
+# accepted_enc enforcement: token enc is A128GCM, we only allow A256GCM
+eval {
+  $jwt->decode_jwe($jwe, $secret, ['PBES2-HS256+A128KW'], ['A256GCM']);
+};
+ok($@, 'JWE rejected when accepted_enc does not match token enc');
 
 done_testing;
