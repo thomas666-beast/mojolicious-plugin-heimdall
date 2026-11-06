@@ -7,16 +7,17 @@ our $VERSION = '0.001';
 sub register ($self, $app, $conf) {
   require Mojolicious::Plugin::Heimdall::Password;
   require Mojolicious::Plugin::Heimdall::Random;
+  require Mojolicious::Plugin::Heimdall::Crypto;
 
   my $password = Mojolicious::Plugin::Heimdall::Password->new(
     encoder    => $conf->{password_encoder}    // 'Argon2',
     validators => $conf->{password_validators} // [ 'Bcrypt', 'Argon2' ],
   );
-
   my $random = Mojolicious::Plugin::Heimdall::Random->new;
+  my $crypto = Mojolicious::Plugin::Heimdall::Crypto->new;
 
   $app->helper(heimdall => sub ($c) {
-    return { password => $password, random => $random };
+    return { password => $password, random => $random, crypto => $crypto };
   });
 
   return $self;
