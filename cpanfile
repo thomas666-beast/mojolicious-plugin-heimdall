@@ -13,5 +13,6 @@ on 'test' => sub {
 
 on 'develop' => sub {
   requires 'Dist::Zilla';
-  requires 'Test::Pod';
+  requires 'Test::Pod', '1.52';
+  requires 'Test::Pod::Coverage', '1.10';
 };
