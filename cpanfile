@@ -9,10 +9,10 @@ requires 'Crypt::JWT', '0.038';
 
 on 'test' => sub {
   requires 'Test::More', '1.302';
+  requires 'Test::Pod', '1.52';
+  requires 'Test::Pod::Coverage', '1.10';
 };
 
 on 'develop' => sub {
   requires 'Dist::Zilla';
-  requires 'Test::Pod', '1.52';
-  requires 'Test::Pod::Coverage', '1.10';
 };

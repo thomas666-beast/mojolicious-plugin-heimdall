@@ -19,7 +19,7 @@ jobs:
         with:
           perl-version: ${{ matrix.perl }}
       - name: Install dependencies
-        run: cpanm --installdeps --notest .
+        run: cpanm --installdeps --with-develop --notest .
       - name: Run tests
         run: prove -lr t
       - name: POD tests
