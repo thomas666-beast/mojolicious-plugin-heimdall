@@ -1,0 +1,80 @@
+FULL WORKING EXAMPLE
+====================
+
+This is a complete application you can save as myapp.pl and run.
+
+    use Mojo::Base -strict, -signatures;
+    use Mojolicious::Lite -signatures;
+
+    plugin 'Heimdall', {
+      auth => {
+        session_key => 'uid',
+        load_user   => sub ($app, $id) {
+          return { id => $id, name => "user$id" };
+        },
+      },
+    };
+
+    app->secrets(['replace-this-with-a-long-random-string-32-bytes']);
+
+    my %USERS = (
+      alice => { id => 1, password => 'secret123' },
+      bob   => { id => 2, password => 'hunter2'   },
+    );
+
+    # hash passwords at startup
+    my $h = app->heimdall;
+    $_->{hash} = $h->password->hash($_->{password}) for values %USERS;
+
+    get '/' => sub ($c) {
+      my $user = $c->heimdall->auth->current_user($c);
+      $c->render(text => $user ? "logged in as $user->{name}" : 'not logged in');
+    };
+
+    post '/login' => sub ($c) {
+      my $u = $USERS{ $c->param('username') // '' };
+      return $c->render(text => 'bad', status => 401) unless $u;
+      return $c->render(text => 'bad', status => 401)
+        unless $c->heimdall->password->verify($c->param('password') // '', $u->{hash});
+      $c->heimdall->auth->login($c, $u->{id});
+      $c->redirect_to('/');
+    };
+
+    get '/logout' => sub ($c) {
+      $c->heimdall->auth->logout($c);
+      $c->redirect_to('/');
+    };
+
+    get '/protected' => sub ($c) {
+      $c->heimdall->auth->require_login($c) or return;
+      $c->render(text => 'you are in');
+    };
+
+    get '/token' => sub ($c) {
+      $c->render(text => $c->heimdall->random->token(32));
+    };
+
+    app->start;
+
+RUN IT
+  carton exec -- perl myapp.pl daemon
+
+TRY IT
+  curl http://localhost:3000/
+  curl -c cookies.txt -d 'username=alice&password=secret123' http://localhost:3000/login
+  curl -b cookies.txt http://localhost:3000/protected
+  curl -b cookies.txt http://localhost:3000/logout
+  curl http://localhost:3000/token
+
+WHAT EACH PART USES
+  plugin 'Heimdall'       loads all five modules
+  ->password->hash        hashes the demo passwords
+  ->password->verify      checks login
+  ->auth->login           sets the session
+  ->auth->require_login   protects a route
+  ->random->token         generates a token
+
+NEXT STEPS
+  Replace %USERS with a database.
+  Replace app->secrets([...]) with a value from the environment.
+  Read document 10 for the security checklist before deploying.

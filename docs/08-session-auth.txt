@@ -1,0 +1,73 @@
+SESSION AUTHENTICATION
+======================
+
+WHAT IT DOES
+  Remembers which user is logged in across requests, using
+  Mojolicious sessions. Stores only the user id in the session. The
+  user object is loaded on each request via a callback you provide.
+
+SETUP
+  use Mojolicious::Lite -signatures;
+
+  plugin 'Heimdall', {
+    auth => {
+      session_key => 'uid',
+      load_user   => sub ($app, $id) {
+        return $app->users->find($id);   # or a database lookup
+      },
+    },
+  };
+
+  # Set a real session secret in production:
+  # app->secrets(['a long random string at least 32 chars']);
+
+LOGIN
+  post '/login' => sub ($c) {
+    my $user = $c->users->check(
+      $c->param('username'),
+      $c->param('password'),
+    ) or return $c->render(text => 'bad credentials', status => 401);
+
+    $c->heimdall->auth->login($c, $user->{id});
+    $c->redirect_to('/');
+  };
+
+WHO IS LOGGED IN
+  get '/me' => sub ($c) {
+    my $user = $c->heimdall->auth->current_user($c);
+    return $c->render(text => 'not logged in', status => 401) unless $user;
+    $c->render(text => "Hello, $user->{name}");
+  };
+
+PROTECT A ROUTE
+  get '/admin' => sub ($c) {
+    $c->heimdall->auth->require_login($c) or return;
+    $c->render(text => 'admin area');
+  };
+
+  require_login does two things:
+    - if not logged in: stores the current URL, redirects to /login,
+      returns false, and your handler returns immediately.
+    - if logged in: returns true.
+
+LOGIN PAGE THAT SENDS THE USER BACK
+  post '/login' => sub ($c) {
+    # ... verify password ...
+    $c->heimdall->auth->login($c, $user->{id});
+    my $back = $c->heimdall->auth->return_to($c, '/');
+    $c->redirect_to($back);
+  };
+
+LOGOUT
+  get '/logout' => sub ($c) {
+    $c->heimdall->auth->logout($c);
+    $c->redirect_to('/');
+  };
+
+IMPORTANT
+  Sessions are only as secure as the cookie signing secret. Set it:
+
+    app->secrets(['a long random string at least 32 chars']);
+
+  Without that, Mojolicious uses a per-process random secret and
+  sessions reset on every restart.

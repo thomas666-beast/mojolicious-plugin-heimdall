@@ -1,0 +1,68 @@
+JWT — ENCRYPTED TOKENS (JWE)
+============================
+
+WHAT IT DOES
+  Like JWS, but the claims are encrypted as well as authenticated.
+  A client cannot read the payload without the key.
+
+  Use JWE when the token carries something the client should not see,
+  for example an internal user id, a role, or a short-lived secret.
+
+SNIPPET
+  use Mojolicious::Lite -signatures;
+
+  plugin 'Heimdall';
+
+  my $secret = '0123456789abcdef0123456789abcdef';
+
+  get '/issue' => sub ($c) {
+    my $jwt = $c->heimdall->jwt;
+    my $token = $jwt->encode(
+      { sub => 42, role => 'admin' },
+      $secret,
+      'PBES2-HS256+A128KW',   # key management algorithm
+      'A128GCM',              # content encryption algorithm
+    );
+    $c->render(text => $token);
+  };
+
+  get '/verify' => sub ($c) {
+    my $jwt   = $c->heimdall->jwt;
+    my $token = $c->param('token') // '';
+
+    my $claims = eval {
+      $jwt->decode_jwe(
+        $token,
+        $secret,
+        ['PBES2-HS256+A128KW'],   # accepted key management
+        ['A128GCM'],              # accepted content encryption
+      )
+    };
+
+    return $c->render(text => 'invalid token', status => 401) unless $claims;
+    $c->render(json => $claims);
+  };
+
+  app->start;
+
+EXPECTED OUTPUT
+  Token has five dot-separated parts. The payload is not readable
+  in a base64 decoder. Decrypting returns:
+
+  {"role":"admin","sub":42}
+
+THE TWO EXTRA ARGUMENTS
+  'PBES2-HS256+A128KW'  how the content-encryption key is derived
+  'A128GCM'             how the content itself is encrypted
+
+  These must match on encode and decode. Always pass both lists to
+  decode_jwe.
+
+WHY accepted_alg AND accepted_enc
+  Both are lists of algorithms you accept. Passing them prevents an
+  attacker from downgrading the token to a weaker algorithm.
+
+INTEROPERABILITY
+  PBES2-HS256+A128KW and A128GCM are standard JOSE algorithms and are
+  understood by most JWT libraries on other languages. If you need to
+  talk to a specific library, check what it supports first.

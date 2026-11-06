@@ -1,0 +1,57 @@
+RSA ENCRYPTION (PUBLIC / PRIVATE KEY)
+=====================================
+
+WHAT IT DOES
+  Encrypts data with a public key so that only the holder of the
+  matching private key can decrypt it.
+
+  Typical uses: encrypting a small secret for a specific server,
+  wrapping a symmetric key, signing (see the JWT documents).
+
+  RSA can only encrypt small payloads. For larger data, encrypt the
+  data with AES-GCM (document 05) and encrypt the AES key with RSA.
+
+SNIPPET
+  use Mojolicious::Lite -signatures;
+
+  plugin 'Heimdall';
+
+  get '/demo' => sub ($c) {
+    my $crypto = $c->heimdall->crypto;
+
+    my $keys = $crypto->rsa_generate(2048);
+
+    my $plain  = 'top secret message';
+    my $cipher = $crypto->rsa_encrypt($plain, $keys->{public_pem});
+    my $back   = $crypto->rsa_decrypt($cipher, $keys->{private_pem});
+
+    $c->render(text => "ciphertext: $cipher\n" .
+                        "decrypted:  $back\n");
+  };
+
+  app->start;
+
+EXPECTED OUTPUT
+  ciphertext: T3f8k...  (base64, changes every run)
+  decrypted:  top secret message
+
+KEYS YOU GET
+  $keys->{public_pem}   safe to share. Used to encrypt.
+  $keys->{private_pem}  keep secret. Used to decrypt.
+
+STORING KEYS
+  Write the private key to a file outside the web root with
+  permissions 0600:
+
+    use Mojo::File;
+    Mojo::File->new('/etc/myapp/private.pem')->spurt($keys->{private_pem});
+    chmod 0600, '/etc/myapp/private.pem';
+
+  Never commit a private key to git.
+
+IMPORTANT
+  RSA encryption is randomized (OAEP padding). Encrypting the same
+  plaintext twice gives two different ciphertexts. That is correct.
+
+  This module uses OAEP padding, which is what you want. Do not
+  switch to v1.5 padding.

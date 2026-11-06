@@ -1,0 +1,73 @@
+AES-GCM ENCRYPTION (SYMMETRIC, AUTHENTICATED)
+=============================================
+
+WHAT IT DOES
+  Encrypts data with a single secret key. In addition to keeping the
+  data secret, it detects tampering: if anyone changes a single byte
+  of the ciphertext, decryption fails.
+
+  This is the right choice for encrypting session cookies, small
+  tokens, or database columns.
+
+SNIPPET
+  use Mojolicious::Lite -signatures;
+  use Crypt::PRNG qw(random_bytes);
+
+  plugin 'Heimdall';
+
+  get '/demo' => sub ($c) {
+    my $crypto = $c->heimdall->crypto;
+
+    my $key  = random_bytes(32);              # 256-bit key
+    my $text = 'private user data';
+    my $aad  = 'user:42';                     # bound to this context
+
+    my $blob = $crypto->aes_gcm_encrypt($text, $key, $aad);
+
+    my $back = $crypto->aes_gcm_decrypt($blob, $key, $aad);
+
+    my $tampered = { %$blob };
+    $tampered->{ciphertext} = substr($blob->{ciphertext}, 0, -1) . 'A';
+    my $bad = $crypto->aes_gcm_decrypt($tampered, $key, $aad);
+
+    $c->render(text => "decrypted: " . ($back // 'FAILED') . "\n" .
+                        "tampered:  " . (defined $bad ? 'accepted (WRONG)' : 'rejected') . "\n");
+  };
+
+  app->start;
+
+EXPECTED OUTPUT
+  decrypted: private user data
+  tampered:  rejected
+
+WHAT IS IN THE BLOB
+  $blob->{iv}          random nonce, unique per encryption
+  $blob->{ciphertext}  the encrypted bytes, base64
+  $blob->{tag}         authentication tag, base64
+
+  Store all three. They are all base64 strings, so you can save them
+  as one JSON column or three TEXT columns.
+
+AAD (ADDITIONAL AUTHENTICATED DATA)
+  The third argument is not encrypted but is authenticated. If the
+  AAD at decryption does not match the AAD at encryption, decryption
+  fails. Use it to bind a ciphertext to a context, e.g. the user id:
+
+    encrypt($secret, $key, "user:$user_id")
+    decrypt($blob,  $key, "user:$user_id")
+
+  Then a blob stolen from user 41 will not decrypt under user 42.
+
+THE KEY
+  The key must be 32 random bytes for AES-256. Generate it once and
+  store it outside the code tree, e.g. in an environment variable:
+
+    my $key = decode_base64($ENV{HEIMDALL_AES_KEY});
+
+  Never hard-code the key in source.
+
+DECRYPTION RETURNS undef ON FAILURE
+  Always check:
+
+    my $plain = $c->heimdall->crypto->aes_gcm_decrypt($blob, $key, $aad);
+    return $c->render(text => 'bad data', status => 400) unless defined $plain;

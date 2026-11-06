@@ -1,0 +1,41 @@
+HEIMDALL — INSTALLATION
+=======================
+
+1. Install from CPAN:
+
+    cpanm Mojolicious::Plugin::Heimdall
+
+   Or, in your project with Carton:
+
+    carton add Mojolicious::Plugin::Heimdall
+
+2. Load the plugin in your Mojolicious app:
+
+    use Mojolicious::Lite -signatures;
+
+    plugin 'Heimdall';
+
+    get '/' => sub ($c) {
+      my $h = $c->heimdall;
+      $c->render(text => 'Heimdall is loaded');
+    };
+
+    app->start;
+
+3. Verify it works:
+
+    perl myapp.pl get /
+
+   Expected output: Heimdall is loaded
+
+That is all. The plugin installs one helper: $c->heimdall.
+
+It returns a facade object with five accessors:
+
+    $c->heimdall->password
+    $c->heimdall->random
+    $c->heimdall->crypto
+    $c->heimdall->jwt
+    $c->heimdall->auth
+
+Every other document uses one of these.

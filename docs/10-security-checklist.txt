@@ -1,0 +1,64 @@
+SECURITY CHECKLIST
+==================
+
+Before you deploy, confirm every item below.
+
+1. SESSION SECRET
+   app->secrets(['...']) is set to a value of at least 32 random
+   bytes, loaded from the environment, not hard-coded. Without it,
+   sessions reset on restart and cookies are not trustworthy.
+
+2. JWT / HMAC SECRET
+   The HS256 key is at least 32 bytes, from the environment, and
+   different from the session secret.
+
+3. JWT DECODE ARGUMENTS
+   Every $jwt->decode($token, $key, [ALG]) call passes the third
+   argument. Every $jwt->decode_jwe(...) call passes both accepted
+   algorithm lists. Grep your code for decode_jwt and confirm.
+
+4. RSA PRIVATE KEY
+   Stored outside the application tree, file mode 0600, never in
+   git. If it leaks, rotate it: generate a new pair and re-encrypt
+   anything that was wrapped with the old public key.
+
+5. AES KEY
+   32 random bytes, from the environment, unique per deployment,
+   never reused across applications.
+
+6. PASSWORD COLUMN
+   Long enough to hold a full Argon2 hash (255 characters is safe).
+   Comparisons happen through $h->password->verify(), not == or eq.
+
+7. RANDOM VALUES
+   No rand(), no int(rand()), no time(). Only $h->random->*.
+
+8. LOG OUTPUT
+   No password, hash, key, token, or private key in logs. Check that
+   your exception handler does not print stack traces containing
+   secrets to the client.
+
+9. HTTPS
+   In production, run behind TLS. Sessions, JWTs, and credentials
+   must not travel over plain HTTP.
+
+10. DEPENDENCY VERSIONS
+    CryptX >= 0.088_001 is required by this plugin. Confirm the
+    installed version:
+
+      perl -MCryptX -e 'print $CryptX::VERSION, "\n"'
+
+11. COOKIE FLAGS
+    In production set:
+
+      app->sessions->secure(1);
+      app->sessions->same_site('Lax');
+
+    The session cookie should not be sent over plain HTTP and should
+    not travel on cross-site requests.
+
+12. TESTS
+    Run the full test suite before every release:
+
+      carton exec -- prove -lr t
+      carton exec -- prove -lr xt
