@@ -38,20 +38,21 @@ my $jwe_decoded = $jwt->decode_jwe(
 );
 is_deeply($jwe_decoded, $payload, 'JWE round-trip');
 
-# Tampered JWE must not return original payload
+# Tampered JWE must not recover original payload
 my @jwe_parts = split /\./, $jwe;
-# Mutate the ciphertext (4th segment, index 3) to ensure authentication fails
-$jwe_parts[3] = substr($jwe_parts[3], 0, -1) . (substr($jwe_parts[3], -1) eq 'A' ? 'B' : 'A');
+# Flip a character in the ciphertext segment (4th segment, index 3)
+my $last_char = substr($jwe_parts[3], -1);
+$jwe_parts[3] = substr($jwe_parts[3], 0, -1) . ($last_char eq 'A' ? 'B' : 'A');
 my $tampered = join '.', @jwe_parts;
 
-my $result = eval {
-  $jwt->decode_jwe($tampered, $secret, ['PBES2-HS256+A128KW'], ['A128GCM']);
+my $payload_recovered = 0;
+eval {
+  my $r = $jwt->decode_jwe($tampered, $secret, ['PBES2-HS256+A128KW'], ['A128GCM']);
+  if (ref $r eq 'HASH' && defined $r->{sub} && $r->{sub} == 42) {
+    $payload_recovered = 1;
+  }
 };
 
-my $rejected = 1;
-if (defined $result && ref $result eq 'HASH' && defined $result->{sub} && $result->{sub} == 42) {
-  $rejected = 0;  # Tampered token still decoded to original payload → security failure
-}
-ok($rejected, 'tampered JWE rejected (no original payload returned)');
+ok(!$payload_recovered, 'tampered JWE does not recover original payload');
 
 done_testing;
