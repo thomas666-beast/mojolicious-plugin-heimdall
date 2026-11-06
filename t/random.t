@@ -6,7 +6,7 @@ use Mojolicious::Plugin::Heimdall;
 my $app = Mojolicious->new;
 $app->plugin('Heimdall');
 
-my $rnd = $app->heimdall->{random};
+my $rnd = $app->build_controller->heimdall->random;
 
 # token
 my $t = $rnd->token;
@@ -23,7 +23,8 @@ is(length $p, 16, 'default password length 16');
 like($p, qr/[A-Z]/, 'password has uppercase');
 like($p, qr/[a-z]/, 'password has lowercase');
 like($p, qr/[0-9]/, 'password has digit');
-like($p, qr/[!@#\$%^&*()\-_=+\[\]{};:,.<>?]/, 'password has symbol');
+like($p, qr/^[A-Za-z0-9!@#\$%^&*()\-_=+\[\]{};:,.<>?]+$/, 'password uses valid charset');
+isnt($rnd->password, $p, 'two passwords differ');
 
 # string with custom alphabet
 my $s = $rnd->string(10, 'ab');

@@ -5,7 +5,7 @@ use Mojolicious::Plugin::Heimdall;
 
 my $app = Mojolicious->new;
 $app->plugin('Heimdall');
-my $jwt = $app->heimdall->{jwt};
+my $jwt = $app->build_controller->heimdall->jwt;
 
 my $secret = '0123456789abcdef0123456789abcdef';  # 32 bytes for HS256
 my $payload = { sub => 42, role => 'admin' };
@@ -38,20 +38,20 @@ my $jwe_decoded = $jwt->decode_jwe(
 );
 is_deeply($jwe_decoded, $payload, 'JWE round-trip');
 
-# Tampered JWE fails
-my $tampered = $jwe;
-my @jwe_parts = split /\./, $tampered;
-# Flip a character in the ciphertext (4th segment, index 3)
-$jwe_parts[3] = substr($jwe_parts[3], 0, -1) . ($jwe_parts[3] =~ /A$/ ? 'B' : 'A');
-$tampered = join '.', @jwe_parts;
+# Tampered JWE must not return original payload
+my @jwe_parts = split /\./, $jwe;
+# Mutate the ciphertext (4th segment, index 3) to ensure authentication fails
+$jwe_parts[3] = substr($jwe_parts[3], 0, -1) . (substr($jwe_parts[3], -1) eq 'A' ? 'B' : 'A');
+my $tampered = join '.', @jwe_parts;
 
-my $tamper_ok = eval {
-  my $r = $jwt->decode_jwe($tampered, $secret, ['PBES2-HS256+A128KW'], ['A128GCM']);
-  # If no exception, the result must NOT match the original payload
-  return 0 if defined $r && ref $r eq 'HASH'
-    && defined $r->{sub} && $r->{sub} == 42;
-  return 1;
+my $result = eval {
+  $jwt->decode_jwe($tampered, $secret, ['PBES2-HS256+A128KW'], ['A128GCM']);
 };
-ok($tamper_ok, 'tampered JWE rejected (exception or mismatched payload)');
+
+my $rejected = 1;
+if (defined $result && ref $result eq 'HASH' && defined $result->{sub} && $result->{sub} == 42) {
+  $rejected = 0;  # Tampered token still decoded to original payload → security failure
+}
+ok($rejected, 'tampered JWE rejected (no original payload returned)');
 
 done_testing;

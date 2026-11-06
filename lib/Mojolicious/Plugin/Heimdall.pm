@@ -9,6 +9,8 @@ sub register ($self, $app, $conf) {
   require Mojolicious::Plugin::Heimdall::Random;
   require Mojolicious::Plugin::Heimdall::Crypto;
   require Mojolicious::Plugin::Heimdall::JWT;
+  require Mojolicious::Plugin::Heimdall::Auth;
+  require Mojolicious::Plugin::Heimdall::Facade;
 
   my $password = Mojolicious::Plugin::Heimdall::Password->new(
     encoder    => $conf->{password_encoder}    // 'Argon2',
@@ -18,14 +20,21 @@ sub register ($self, $app, $conf) {
   my $crypto = Mojolicious::Plugin::Heimdall::Crypto->new;
   my $jwt    = Mojolicious::Plugin::Heimdall::JWT->new;
 
-  $app->helper(heimdall => sub ($c) {
-    return {
-      password => $password,
-      random   => $random,
-      crypto   => $crypto,
-      jwt      => $jwt,
-    };
-  });
+  my %auth_conf = %{ $conf->{auth} // {} };
+  my $auth = Mojolicious::Plugin::Heimdall::Auth->new(
+    session_key => $auth_conf{session_key} // 'user_id',
+    load_user   => $auth_conf{load_user},
+  );
+
+  my $facade = Mojolicious::Plugin::Heimdall::Facade->new(
+    password => $password,
+    random   => $random,
+    crypto   => $crypto,
+    jwt      => $jwt,
+    auth     => $auth,
+  );
+
+  $app->helper(heimdall => sub ($c) { return $facade });
 
   return $self;
 }

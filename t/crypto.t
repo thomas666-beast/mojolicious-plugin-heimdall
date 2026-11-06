@@ -7,7 +7,7 @@ use Encode qw(encode_utf8);
 
 my $app = Mojolicious->new;
 $app->plugin('Heimdall');
-my $crypto = $app->heimdall->{crypto};
+my $crypto = $app->build_controller->heimdall->crypto;
 
 # RSA round-trip
 my $keys = $crypto->rsa_generate(2048);

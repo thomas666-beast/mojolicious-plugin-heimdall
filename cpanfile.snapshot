@@ -298,6 +298,20 @@ DISTRIBUTIONS
       perl 5.006
       strict 0
       warnings 0
+  Crypt-JWT-0.038
+    pathname: M/MI/MIK/Crypt-JWT-0.038.tar.gz
+    provides:
+      Crypt::JWT 0.038
+      Crypt::KeyWrap 0.038
+    requirements:
+      Compress::Raw::Zlib 2.057
+      CryptX 0.067
+      Exporter 5.57
+      ExtUtils::MakeMaker 0
+      JSON 0
+      Scalar::Util 0
+      Test::More 0.88
+      perl 5.006
   Crypt-Passphrase-0.024
     pathname: L/LE/LEONT/Crypt-Passphrase-0.024.tar.gz
     provides:
@@ -1656,6 +1670,15 @@ DISTRIBUTIONS
       Symbol 0
       strict 0
       warnings 0
+  JSON-4.11
+    pathname: I/IS/ISHIGAKI/JSON-4.11.tar.gz
+    provides:
+      JSON 4.11
+      JSON::Backend::PP 4.11
+    requirements:
+      ExtUtils::MakeMaker 0
+      Scalar::Util 1.08
+      Test::More 0.88
   JSON-MaybeXS-1.004008
     pathname: E/ET/ETHER/JSON-MaybeXS-1.004008.tar.gz
     provides:

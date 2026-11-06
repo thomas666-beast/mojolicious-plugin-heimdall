@@ -10,18 +10,20 @@ sub encode ($self, $payload, $key, $alg = 'HS256', $enc = undef) {
 }
 
 sub decode ($self, $token, $key, $accepted_alg = ['HS256']) {
-  # Mandatory accepted_alg prevents algorithm confusion
+  # HMAC keys are bare scalars; PEM keys need a SCALAR ref
+  my $k = ref $key ? $key : $key;
   return decode_jwt(
     token        => $token,
-    key          => ref $key ? $key : \$key,
+    key          => $k,
     accepted_alg => $accepted_alg,
   );
 }
 
 sub decode_jwe ($self, $token, $key, $accepted_alg, $accepted_enc) {
+  my $k = ref $key ? $key : $key;
   return decode_jwt(
     token        => $token,
-    key          => ref $key ? $key : \$key,
+    key          => $k,
     accepted_alg => $accepted_alg,
     accepted_enc => $accepted_enc,
   );

@@ -14,7 +14,7 @@ $app->plugin('Heimdall', {
 my $c = $app->build_controller;
 $c->session({});
 
-my $auth = $c->heimdall->{auth};
+my $auth = $c->heimdall->auth;
 
 ok(!$auth->is_authenticated($c), 'initially not authenticated');
 is($auth->current_user($c), undef, 'no current user initially');

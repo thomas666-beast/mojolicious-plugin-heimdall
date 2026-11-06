@@ -6,7 +6,8 @@ use Mojolicious::Plugin::Heimdall;
 my $app = Mojolicious->new;
 $app->plugin('Heimdall');
 
-my $pw = $app->heimdall->{password};
+my $h = $app->build_controller->heimdall;
+my $pw = $h->password;
 
 # Argon2 default encoder
 my $hash = $pw->hash('s3cr3t');
