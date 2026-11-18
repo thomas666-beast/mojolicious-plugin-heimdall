@@ -1,0 +1,16 @@
+^\.git/
+^local/
+^\.build/
+^Mojolicious-Plugin-Heimdall-
+^\.pause$
+^\.dzil/
+^dist\.ini$
+^weaver\.ini$
+^\.gitignore$
+^blib/
+^Makefile(?:\.old)?$
+^(?:MY)?META\.(?:json|yml)$
+^pm_to_blib$
+^cpanfile\.snapshot$
+\.(?:bak|old|swp)$
+~$

@@ -1,10 +1,10 @@
 package Mojolicious::Plugin::Heimdall;
-use Mojolicious;
+use Mojolicious 9.48;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
-sub register ($self, $app, $conf) {
+sub register ($self, $app, $conf = {}) {
   require Mojolicious::Plugin::Heimdall::Password;
   require Mojolicious::Plugin::Heimdall::Random;
   require Mojolicious::Plugin::Heimdall::Crypto;
@@ -63,7 +63,7 @@ Mojolicious::Plugin::Heimdall - Unified security toolbox for Mojolicious
 =head1 DESCRIPTION
 
 L<Mojolicious::Plugin::Heimdall> is a security toolbox for L<Mojolicious>
-applications. It wraps audited CPAN modules behind one facade reached via
+applications. It wraps CPAN modules behind one facade reached via
 C<$c-E<gt>heimdall>, which returns a
 L<Mojolicious::Plugin::Heimdall::Facade>.
 
@@ -122,7 +122,10 @@ Array reference of validators. Defaults to C<[ 'Bcrypt', 'Argon2' ]>.
 =item auth
 
 Hash reference with C<session_key> (default C<user_id>) and C<load_user>
-(coderef C<< sub ($app, $id) { ... } >>).
+(coderef C<< sub ($app, $id) { ... } >>). Return a user for an active
+account and C<undef> for an inactive or missing account. Without a loader,
+authentication is based on the signed session ID alone. Authentication
+does not grant roles or permissions.
 
 =back
 
@@ -130,8 +133,12 @@ Hash reference with C<session_key> (default C<user_id>) and C<load_user>
 
 =over 4
 
-=item * C<decode> in L<Mojolicious::Plugin::Heimdall::JWT> always passes
-C<accepted_alg> to L<Crypt::JWT>, blocking algorithm confusion attacks.
+=item * Set explicit, independently generated session secrets before using
+authentication in production. Configure secure cookies when serving HTTPS.
+
+=item * Use C<verify_access_token> in L<Mojolicious::Plugin::Heimdall::JWT>
+for signed API credentials. Low-level C<decode> does not require
+application-specific claims.
 
 =item * C<aes_gcm_decrypt> returns C<undef> on authentication failure.
 

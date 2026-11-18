@@ -50,4 +50,45 @@ eval {
 };
 ok($@, 'JWE rejected when accepted_enc does not match token enc');
 
+my %policy = (alg => 'HS256', issuer => 'https://issuer.example.test', audience => 'example-api');
+my %access = (iss => $policy{issuer}, aud => $policy{audience}, sub => '42', exp => time + 300);
+my $access_jws = $jwt->encode(\%access, $secret, 'HS256');
+is_deeply($jwt->verify_access_token($access_jws, $secret, %policy), \%access, 'valid access token');
+my $array_aud = $jwt->encode({%access, aud => ['another-api', 'example-api']}, $secret, 'HS256');
+is($jwt->verify_access_token($array_aud, $secret, %policy)->{sub}, '42', 'allow matching array audience');
+
+for my $claim (qw(exp iss aud sub)) {
+  my %missing = %access;
+  delete $missing{$claim};
+  my $candidate = $jwt->encode(\%missing, $secret, 'HS256');
+  eval { $jwt->verify_access_token($candidate, $secret, %policy) };
+  like($@, qr/invalid access token/, "missing $claim rejected");
+}
+for my $case (
+  ['expired', exp => time - 60],
+  ['not yet valid', nbf => time + 120],
+  ['wrong issuer', iss => 'https://another-issuer.example.test'],
+  ['wrong audience', aud => 'another-api'],
+  ['empty subject', sub => ''],
+) {
+  my ($label, $claim, $value) = @$case;
+  my $candidate = $jwt->encode({%access, $claim => $value}, $secret, 'HS256');
+  eval { $jwt->verify_access_token($candidate, $secret, %policy) };
+  like($@, qr/invalid access token/, "$label rejected");
+}
+
+eval { $jwt->verify_access_token($access_jws, $secret, %policy, alg => 'RS256') };
+like($@, qr/invalid access token/, 'strict verifier enforces the configured signature algorithm');
+eval { $jwt->verify_access_token($access_jws, 'short-key', %policy) };
+like($@, qr/at least 32 bytes/, 'strict verifier enforces minimum HMAC key length');
+eval { $jwt->verify_access_token($jwe, $secret, %policy) };
+like($@, qr/expected a compact signed JWT/, 'strict verifier does not accept JWE as an access token');
+eval { $jwt->verify_access_token($access_jws, $secret, alg => 'HS256', issuer => $policy{issuer}) };
+like($@, qr/expected issuer and audience/, 'policy must be explicitly configured');
+
+my $keys = $app->heimdall->crypto->rsa_generate;
+my $signed_rs = $jwt->encode(\%access, \$keys->{private_pem}, 'RS256');
+is_deeply($jwt->verify_access_token($signed_rs, \$keys->{public_pem}, %policy, alg => 'RS256'),
+  \%access, 'strict verifier works with RSA public keys');
+
 done_testing;

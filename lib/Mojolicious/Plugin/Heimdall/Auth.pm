@@ -1,5 +1,7 @@
 package Mojolicious::Plugin::Heimdall::Auth;
 use Mojo::Base -base, -signatures;
+use Carp qw(croak);
+use Scalar::Util qw(refaddr);
 
 has 'session_key';      # default 'user_id'
 has 'load_user';        # coderef($app, $id) -> user object or undef
@@ -11,39 +13,80 @@ sub new ($class, %args) {
 }
 
 sub login ($self, $c, $user_id) {
-  $c->session->{ $self->session_key } = $user_id;
+  _check_secrets($c);
+  croak 'Heimdall: login requires a nonempty scalar user ID'
+    unless defined $user_id && !ref($user_id) && length($user_id);
+  my $session = $c->session;
+  delete $session->{csrf_token};
+  delete $c->stash->{'heimdall.auth_user'}{refaddr($self)};
+  $session->{ $self->session_key } = $user_id;
   return $c;
 }
 
 sub logout ($self, $c) {
-  delete $c->session->{ $self->session_key };
+  _check_secrets($c);
+  my $session = $c->session;
+  delete @{$session}{$self->session_key, 'csrf_token', 'heimdall_return_to'};
+  delete $c->stash->{'heimdall.auth_user'}{refaddr($self)};
   return $c;
 }
 
 sub current_user ($self, $c) {
+  _check_secrets($c);
   my $id = $c->session->{ $self->session_key };
-  return undef unless defined $id;
+  return undef unless defined $id && !ref($id) && length($id);
   if (my $loader = $self->load_user) {
-    return $loader->($c->app, $id);
+    my $cache = $c->stash->{'heimdall.auth_user'} //= {};
+    my $cached = $cache->{refaddr($self)};
+    return $cached->[1] if $cached && $cached->[0] eq $id;
+    my $user = $loader->($c->app, $id) || undef;
+    $cache->{refaddr($self)} = [$id, $user];
+    return $user;
   }
   return $id;
 }
 
 sub is_authenticated ($self, $c) {
-  return defined $c->session->{ $self->session_key };
+  return defined $self->current_user($c);
 }
 
 sub require_login ($self, $c) {
   return 1 if $self->is_authenticated($c);
-  my $redirect = $c->req->url->to_abs->to_string;
-  $c->session->{heimdall_return_to} = $redirect;
+  my $session = $c->session;
+  my $url = $c->req->url;
+  my $path = $url->path->to_string;
+  my $query = $url->query->to_string;
+  delete @{$session}{$self->session_key, 'heimdall_return_to'};
+  my $target = $path . (length($query) ? "?$query" : '');
+  $session->{heimdall_return_to} = $target
+    if ($c->req->method // '') =~ /\A(?:GET|HEAD)\z/ && _local_target($target);
   $c->redirect_to('/login');
   return 0;
 }
 
 sub return_to ($self, $c, $default = '/') {
-  my $to = delete $c->session->{heimdall_return_to} // $default;
-  return $to;
+  _check_secrets($c);
+  my $to = delete $c->session->{heimdall_return_to};
+  return $to if _local_target($to);
+  return _local_target($default) ? $default : '/';
+}
+
+sub _local_target ($target) {
+  return 0 if !defined($target) || ref($target) || length($target) > 1024;
+  return 0 if $target =~ /[\\\x00-\x20\x7f#]/;
+  return 0 unless $target =~ m{\A/(?!/|%2f|%5c)}i;
+  my ($path) = split /\?/, $target, 2;
+  return $path !~ /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i;
+}
+
+sub _check_secrets ($c) {
+  my $app = $c->app;
+  return unless $app->mode eq 'production';
+  my $secrets = $app->secrets;
+  croak 'Heimdall: configure explicit random session secrets (at least 32 bytes each)'
+    unless ref($secrets) eq 'ARRAY' && @$secrets && !grep {
+      !defined($_) || ref($_) || /[^\x00-\xff]/ || length($_) < 32 || $_ eq $app->moniker
+    } @$secrets;
 }
 
 1;
@@ -85,7 +128,9 @@ Session key holding the user ID. Default C<user_id>.
 
   my $cb = $auth->load_user;
 
-Coderef C<< sub ($app, $id) { ... } >> returning a user object.
+Coderef C<< sub ($app, $id) { ... } >> returning a truthy user value
+for an active account or C<undef> for a missing or disabled account.
+The result is cached for the current request only.
 
 =head1 METHODS
 
@@ -99,13 +144,17 @@ Constructor. Accepts C<session_key> and C<load_user>.
 
   $auth->login($c, $user_id);
 
-Store the user ID in the session.
+Store a previously verified user ID and clear the pre-login CSRF token.
+In production, session authentication requires explicit random signing
+secrets set on the app. It cannot measure the entropy of a configured value.
 
 =head2 logout
 
   $auth->logout($c);
 
-Remove the user ID from the session.
+Remove the user ID, return path and CSRF token from the browser session.
+This cannot revoke copies of a previously issued client-side cookie.
+Use a session store or a server-side revocation check when that is required.
 
 =head2 current_user
 
@@ -118,20 +167,23 @@ configured. Returns C<undef> if not authenticated.
 
   my $bool = $auth->is_authenticated($c);
 
-True if a user ID is present in the session.
+True if C<current_user> resolves a user. Without a loader, an ID in the
+signed session is enough for authentication, but not for authorization.
 
 =head2 require_login
 
   my $ok = $auth->require_login($c);
 
-If authenticated, returns true. Otherwise stores the current URL under
-C<heimdall_return_to> and redirects to C</login>, returning false.
+If authenticated, returns true. Otherwise clears the stale user ID,
+remembers a safe local GET or HEAD path, and redirects to C</login>,
+returning false.
 
 =head2 return_to
 
   my $url = $auth->return_to($c, $default);
 
-Return and clear the stored return URL, falling back to C<$default>.
+Return and clear the stored local path, falling back to C<$default>
+when it is local, or C</> otherwise.
 
 =head1 SEE ALSO
 

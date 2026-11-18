@@ -1,0 +1,19 @@
+Revision history for Mojolicious-Plugin-Heimdall
+
+0.002
+          - Resolve active accounts in the route guard and memoize per request.
+          - Restrict post-login redirects to local paths and clear CSRF state at login/logout.
+          - Reject default or weakly configured production session signing secrets.
+          - Add verify_access_token with algorithm, issuer, audience, expiry, and subject checks.
+          - Ship a CSRF-protected sign-in example with a separate admin authorization check.
+          - Build and install the source distribution in CI. Require Mojolicious 9.48+ and CryptX 0.091+.
+
+0.001     2026-11-06
+          - Initial release
+          - Password hashing via Crypt::Passphrase (Argon2 default, Bcrypt verify)
+          - Secure random tokens via Crypt::URandom::Token
+          - RSA (OAEP) and AES-GCM via CryptX
+          - JWS and JWE via Crypt::JWT
+          - Session authentication on top of Mojolicious::Sessions
+          - Unified facade: $c->heimdall->password / random / crypto / jwt / auth
+          - docs/ with numbered copy-pasteable examples

@@ -1,76 +1,49 @@
-JWT — SIGNED TOKENS (JWS)
-=========================
+JWT: SIGNED API ACCESS TOKENS
+=============================
 
-WHAT IT DOES
-  Produces a token the server can hand to a client. The token contains
-  claims (a JSON object) and a signature. On the next request the
-  server verifies the signature and reads the claims.
+Signing lets a verifier check integrity and authenticity. It does not
+hide the claims. Do not put passwords or other sensitive data in a token.
+Use TLS and send tokens in the Authorization header, not in query strings.
 
-  Signing proves the token came from you. It does not hide the claims.
-  Anyone can read the payload. Use JWE (document 07) if you need to
-  hide them.
+Configure an independent random signing key of at least 32 bytes for
+HS256. Do not use the same key for signing session cookies. Read it from
+application secrets, not source control.
 
-SNIPPET
-  use Mojolicious::Lite -signatures;
+ISSUE AFTER VERIFYING THE USER
 
-  plugin 'Heimdall';
+  my $issuer   = 'https://accounts.example.test';
+  my $audience = 'example-api';
+  my $jwt      = $c->heimdall->jwt;
+  my $bearer   = $jwt->encode({
+    iss => $issuer, aud => $audience, sub => "$user_id", exp => time + 300,
+  }, $key, 'HS256');
 
-  my $secret = '0123456789abcdef0123456789abcdef';  # 32 bytes
+This snippet belongs in your authenticated token-issuance flow, after you
+have established $user_id. Do not expose a route that issues tokens for
+arbitrary subjects.
 
-  get '/issue' => sub ($c) {
-    my $jwt = $c->heimdall->jwt;
-    my $token = $jwt->encode({ sub => 42, role => 'admin' }, $secret, 'HS256');
-    $c->render(text => $token);
+VERIFY ON EACH API REQUEST
+
+  my $header = $c->req->headers->authorization // '';
+  my ($bearer) = $header =~ /\ABearer ([A-Za-z0-9_.-]+)\z/i;
+  my $claims = eval {
+    $c->heimdall->jwt->verify_access_token(
+      $bearer, $key,
+      alg => 'HS256', issuer => $issuer, audience => $audience,
+    );
   };
+  return $c->render(json => {error => 'unauthorized'}, status => 401)
+    unless $claims;
 
-  get '/verify' => sub ($c) {
-    my $jwt   = $c->heimdall->jwt;
-    my $token = $c->param('token') // '';
+Only use a key, algorithm, issuer and audience set by your application.
+The method rejects tokens missing an expiration, expected issuer,
+expected audience or nonempty subject. It does not confirm an account
+still exists or grant any permissions. Look up $claims->{sub} and enforce
+account status and authorization before processing the request.
 
-    my $claims = eval { $jwt->decode($token, $secret, ['HS256']) };
+For lower-level or legacy JWS use, `decode` defaults to HS256 and accepts
+an explicit algorithm allowlist. It does not require the access-token
+claims. Pass PEM keys as scalar references or supported key objects,
+not as HMAC secrets. JWE has a separate helper described in document 07.
 
-    if (!$claims) {
-      return $c->render(text => 'invalid token', status => 401);
-    }
-    $c->render(json => $claims);
-  };
-
-  app->start;
-
-TRY IT
-  perl myapp.pl get /issue
-  # copy the token, then:
-  perl myapp.pl get '/verify?token=PASTE_TOKEN_HERE'
-
-EXPECTED OUTPUT
-  {"role":"admin","sub":42}
-
-WHY accepted_alg IS MANDATORY
-  $jwt->decode($token, $secret, ['HS256'])
-
-  The third argument is a list of algorithms you accept. Always pass
-  it. Without it, an attacker can take a token signed with RS256,
-  rewrite the header to say HS256, and sign it using your public key
-  as the HMAC secret. This is the classic algorithm confusion attack.
-  Passing ['HS256'] makes that impossible.
-
-KEY LENGTH
-  For HS256 the key must be at least 32 bytes. Shorter keys are
-  rejected. Generate one with:
-
-    perl -MCrypt::PRNG=random_bytes -e 'print unpack("H*", random_bytes(32)), "\n"'
-
-  Store it in an environment variable. Do not put it in source.
-
-COMMON USE: API AUTHENTICATION
-  Issue a token at login:
-
-    my $token = $jwt->encode({ sub => $user->{id}, exp => time + 3600 }, $secret, 'HS256');
-
-  Verify on each API request:
-
-    my $claims = eval { $jwt->decode($bearer, $secret, ['HS256']) };
-    return $c->render(json => { error => 'unauthorized' }, status => 401)
-      unless $claims;
-    return $c->render(json => { error => 'expired' }, status => 401)
-      if ($claims->{exp} // 0) < time;
+JWT best practices: https://www.rfc-editor.org/info/rfc8725/

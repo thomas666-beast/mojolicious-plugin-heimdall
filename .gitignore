@@ -21,3 +21,6 @@
 # Local
 /local/
 .perl-version
+
+cpanfile.snapshot
+

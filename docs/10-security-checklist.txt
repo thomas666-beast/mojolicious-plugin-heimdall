@@ -5,17 +5,20 @@ Before you deploy, confirm every item below.
 
 1. SESSION SECRET
    app->secrets(['...']) is set to a value of at least 32 random
-   bytes, loaded from the environment, not hard-coded. Without it,
-   sessions reset on restart and cookies are not trustworthy.
+   bytes per key, loaded from configured secrets, not hard-coded.
+   Do not use the Mojolicious default. Keep signing and verification
+   keys private, including old keys during rotation.
 
 2. JWT / HMAC SECRET
    The HS256 key is at least 32 bytes, from the environment, and
    different from the session secret.
 
 3. JWT DECODE ARGUMENTS
-   Every $jwt->decode($token, $key, [ALG]) call passes the third
-   argument. Every $jwt->decode_jwe(...) call passes both accepted
-   algorithm lists. Grep your code for decode_jwt and confirm.
+   For API authentication, use verify_access_token with the expected
+   issuer, audience and algorithm. Resolve the subject to an active
+   account and authorize the action separately. For low-level decode
+   and decode_jwe, configure algorithm allowlists independently of
+   the token. Never put a bearer token in a URL.
 
 4. RSA PRIVATE KEY
    Stored outside the application tree, file mode 0600, never in
@@ -43,8 +46,8 @@ Before you deploy, confirm every item below.
    must not travel over plain HTTP.
 
 10. DEPENDENCY VERSIONS
-    CryptX >= 0.088_001 is required by this plugin. Confirm the
-    installed version:
+    Heimdall requires Mojolicious >= 9.48 and CryptX >= 0.091.
+    Keep them and Crypt::JWT up to date. Confirm CryptX with:
 
       perl -MCryptX -e 'print $CryptX::VERSION, "\n"'
 
@@ -52,13 +55,24 @@ Before you deploy, confirm every item below.
     In production set:
 
       app->sessions->secure(1);
-      app->sessions->same_site('Lax');
+      app->sessions->samesite('Lax');
 
-    The session cookie should not be sent over plain HTTP and should
-    not travel on cross-site requests.
+    Secure limits the cookie to HTTPS. SameSite=Lax restricts some,
+    but not all, cross-site requests. Keep CSRF protection enabled.
 
-12. TESTS
+12. LOGIN AND LOGOUT
+    Use POST and validate a CSRF token for both. Throttle login attempts.
+    Return the same failure message for unknown users and wrong passwords.
+    Validate that the user is active on protected requests. For immediate
+    revocation of already-issued cookies, add server-side sessions or
+    an app-level revocation check.
+
+13. TESTS AND RELEASE
     Run the full test suite before every release:
 
-      carton exec -- prove -lr t
-      carton exec -- prove -lr xt
+      prove -lr t xt
+      perl Makefile.PL
+      make dist
+
+    Install the archive into a fresh local lib, not just the source tree.
+    Verify the packaged version and re-run the example.

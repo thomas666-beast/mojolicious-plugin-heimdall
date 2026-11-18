@@ -1,13 +1,16 @@
 HEIMDALL — INSTALLATION
 =======================
 
-1. Install from CPAN:
+1. Install the supplied release archive:
 
-    cpanm Mojolicious::Plugin::Heimdall
+    cpanm ./Mojolicious-Plugin-Heimdall-0.002.tar.gz
 
-   Or, in your project with Carton:
+   From the extracted distribution, you can also install with:
 
-    carton add Mojolicious::Plugin::Heimdall
+    cpanm .
+
+   Requires Perl 5.26+, Mojolicious 9.48+, and CryptX 0.091+.
+   See examples/README.md to run the complete login app.
 
 2. Load the plugin in your Mojolicious app:
 

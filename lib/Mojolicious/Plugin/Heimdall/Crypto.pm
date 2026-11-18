@@ -67,8 +67,7 @@ Mojolicious::Plugin::Heimdall::Crypto - RSA and AES-GCM encryption
 Asymmetric and symmetric encryption backed by L<CryptX>. RSA uses OAEP
 padding. AES-GCM uses the one-shot interface for authenticated encryption.
 
-Requires C<CryptX> E<gt>= 0.088_001 (fixes CVE-2026-13758 and
-CVE-2026-41564).
+Heimdall 0.002 requires the stable C<CryptX> 0.091 release or newer.
 
 =head1 METHODS
 

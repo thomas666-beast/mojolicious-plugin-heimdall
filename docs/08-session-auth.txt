@@ -1,73 +1,58 @@
 SESSION AUTHENTICATION
 ======================
 
-WHAT IT DOES
-  Remembers which user is logged in across requests, using
-  Mojolicious sessions. Stores only the user id in the session. The
-  user object is loaded on each request via a callback you provide.
+Configure secrets on the application before serving any traffic:
 
-SETUP
-  use Mojolicious::Lite -signatures;
+  my $secret = $ENV{MY_APP_SESSION_SECRET} // '';
+  die 'Configure MY_APP_SESSION_SECRET' if length($secret) < 32;
+  app->secrets([$secret]);
+  app->sessions->samesite('Lax');
+  app->sessions->secure(1);  # HTTPS deployments; use HTTP only on local dev
+
+Generate the secret with a cryptographically secure random generator and
+keep it out of source control. Mojolicious's default is not a production
+secret. Heimdall rejects default or insufficiently long signing secrets
+when its session helpers are used in production mode.
+
+Configure the user loader:
 
   plugin 'Heimdall', {
     auth => {
-      session_key => 'uid',
-      load_user   => sub ($app, $id) {
-        return $app->users->find($id);   # or a database lookup
+      load_user => sub ($app, $id) {
+        my $user = $app->users->find($id);
+        return $user && $user->{active} ? $user : undef;
       },
     },
   };
 
-  # Set a real session secret in production:
-  # app->secrets(['a long random string at least 32 chars']);
+Here `users` is your app's database helper, not a Heimdall method. The
+loader runs once per request when a session user is first requested.
+Return undef if the user no longer exists or is disabled. Without a loader,
+the guard only checks for a user ID in the signed session.
 
-LOGIN
-  post '/login' => sub ($c) {
-    my $user = $c->users->check(
-      $c->param('username'),
-      $c->param('password'),
-    ) or return $c->render(text => 'bad credentials', status => 401);
+After validating the login form's CSRF token and verifying the password,
+call `$c->heimdall->auth->login($c, $id)`. Use
+`$c->heimdall->auth->return_to($c, '/account')` to consume the saved local
+destination, then redirect. The guard saves destination paths for GET or
+HEAD only. It does not save a request body or use the request host as a
+redirect destination.
 
-    $c->heimdall->auth->login($c, $user->{id});
-    $c->redirect_to('/');
-  };
+Protect pages with the guard, and enforce roles separately:
 
-WHO IS LOGGED IN
-  get '/me' => sub ($c) {
-    my $user = $c->heimdall->auth->current_user($c);
-    return $c->render(text => 'not logged in', status => 401) unless $user;
-    $c->render(text => "Hello, $user->{name}");
-  };
-
-PROTECT A ROUTE
   get '/admin' => sub ($c) {
-    $c->heimdall->auth->require_login($c) or return;
-    $c->render(text => 'admin area');
+    my $auth = $c->heimdall->auth;
+    $auth->require_login($c) or return;
+    return $c->render(text => 'Forbidden', status => 403)
+      unless $auth->current_user($c)->{role} eq 'admin';
+    $c->render(text => 'Admin area');
   };
 
-  require_login does two things:
-    - if not logged in: stores the current URL, redirects to /login,
-      returns false, and your handler returns immediately.
-    - if logged in: returns true.
+Use POST and framework CSRF validation for login and logout. Both methods
+clear the previous CSRF token, so fetch a fresh form after either action.
+Logout removes authentication data from the current browser cookie; it
+cannot invalidate previously copied cookies. Use a server-side session
+store or add a revocation check to the account lookup when immediate
+invalidation is required.
 
-LOGIN PAGE THAT SENDS THE USER BACK
-  post '/login' => sub ($c) {
-    # ... verify password ...
-    $c->heimdall->auth->login($c, $user->{id});
-    my $back = $c->heimdall->auth->return_to($c, '/');
-    $c->redirect_to($back);
-  };
-
-LOGOUT
-  get '/logout' => sub ($c) {
-    $c->heimdall->auth->logout($c);
-    $c->redirect_to('/');
-  };
-
-IMPORTANT
-  Sessions are only as secure as the cookie signing secret. Set it:
-
-    app->secrets(['a long random string at least 32 chars']);
-
-  Without that, Mojolicious uses a per-process random secret and
-  sessions reset on every restart.
+For the complete working app, see examples/README.md and
+examples/heimdall_demo.pl.
